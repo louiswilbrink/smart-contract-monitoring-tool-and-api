@@ -1,7 +1,10 @@
 use axum::{
     routing::get,
+    extract::{Path, Query, Json},
     Router
 };
+
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() {
@@ -16,6 +19,7 @@ async fn main() {
         .unwrap();
 }
 
-async fn save_transaction() {
+async fn save_transaction(Query(params): Query<HashMap<String, String>>) {
     println!("Transaction detected!  Saving..");
+    println!("{:?}", params);
 }
