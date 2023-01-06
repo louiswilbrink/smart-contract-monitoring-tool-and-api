@@ -13,13 +13,27 @@ use std::collections::HashMap;
 
 use ethers::prelude::*;
 
+use ethers_providers::MAINNET;
+
 use ethers_providers::{Provider, Ws, Http, Middleware};
 
 #[tokio::main]
 async fn main() {
     let config = load_configuration();
 
-    let provider = Provider::<Http>::try_from(config.provider_url).unwrap();
+    println!("Configuration: {:?}", config);
+
+    let provider = MAINNET.provider();
+
+    match provider.client_version().await {
+        Ok(version) => println!("The version is {}", version),
+        Err(error) => println!("Error getting client version! {:?}", error)
+    }
+
+    match provider.node_client().await.expect("Error getting node client") {
+        Geth => println!("Provider client is running Geth."),
+        _ => println!("Provider client is not running Geth.")
+    }
 
     //provider.subscribe("newPendingTransactions");
 
@@ -36,7 +50,7 @@ async fn main() {
 }
 
 async fn process_transaction(Query(params): Query<HashMap<String, String>>) {
-    println!("Transaction detected!  Saving..");
+    println!("Querying transactions..");
     println!("{:?}", params);
 }
 
@@ -53,11 +67,11 @@ fn read_environment_variables() -> Result<Configuration, VarError> {
     dotenv().ok();
 
     Ok(Configuration {
-        provider_url: var("PROVIDER_URL")?
+        contract_address: var("CONTRACT_ADDRESS")?
     })
 }
 
 #[derive(Debug)]
 pub struct Configuration {
-    pub provider_url: String
+    pub contract_address: String
 }
