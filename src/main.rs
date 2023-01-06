@@ -30,6 +30,14 @@ use ethers_providers::{Provider, Ws};
 async fn main() -> Result<()> {
     let config = load_configuration();
 
+    launch_api().await;
+
+    launch_transfer_monitor().await;
+
+    Ok(())
+}
+
+async fn launch_transfer_monitor() -> Result<()> {
     let client = Provider::<Ws>::connect("wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27").await?;
 
     let client = Arc::new(client);
@@ -52,6 +60,10 @@ async fn main() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+async fn launch_api() -> Result<()> {
     println!("Listening on http://localhost:3000..");
 
     let app = Router::new().route("/transactions", get(process_transaction));
