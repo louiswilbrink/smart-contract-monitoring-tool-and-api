@@ -1,6 +1,3 @@
-// Next: code outer loop: watch_blocks!  Get timestamp off of it!  Subscribe to events from that
-// block!
-
 use dotenv::dotenv;
 
 use std::env::var;
@@ -31,15 +28,36 @@ use ethers::{
 
 use ethers_providers::{Provider, Ws};
 
+use sqlx::Pool;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::Postgres;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
 
     //launch_api().await;
 
+    let pool = get_connection_pool(&config).await.unwrap();
+
     launchTransferMonitor().await;
 
     Ok(())
+}
+
+async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, sqlx::Error> {
+    println!("Connecting to database..");
+
+    let connection_string = format!("postgres://{:1}:{:2}@localhost/{:3}", config.database_username, config.database_password, config.database_name);
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&connection_string)
+        .await?;
+
+    // TODO: Add "Successfully connected to database" notification.
+
+    Ok(pool)
 }
 
 async fn launchTransferMonitor() -> Result<()> {
@@ -119,11 +137,19 @@ fn read_environment_variables() -> Result<Configuration, VarError> {
     dotenv().ok();
 
     Ok(Configuration {
-        contract_address: var("CONTRACT_ADDRESS")?
+        database_name: var("DATABASE_NAME")?,
+        database_username: var("DATABASE_USERNAME")?,
+        database_password: var("DATABASE_PASSWORD")?,
     })
+}
+
+fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>())
 }
 
 #[derive(Debug)]
 pub struct Configuration {
-    pub contract_address: String
+    pub database_name: String,
+    pub database_username: String,
+    pub database_password: String,
 }

@@ -21,6 +21,28 @@ The service also exposes an API endpoint to query journaled transaction data, fi
 
 Copy and rename the `.env-example` file, then add appropriate values.
 
+Make sure you have Postgres installed and running:
+
+```
+$ brew install postgresql
+$ brew services start postgresql
+```
+
+Log into Postgres with the username/password you set in your `.env` file.  Create the `transfers` table:
+
+```
+# CREATE TABLE transfers (
+    id          INTEGER NOT NULL UNIQUE PRIMARY KEY,
+    tx_hash     VARCHAR(66) NOT NULL,
+    sender      VARCHAR(44) NOT NULL,
+    recipient   VARCHAR(44) NOT NULL,
+    amount      FLOAT,
+    timestamp   TIMESTAMP
+);
+```
+
+Run!
+
 ```
 $ cargo run
 ```
