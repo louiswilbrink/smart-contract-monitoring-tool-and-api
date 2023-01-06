@@ -1,3 +1,6 @@
+// Next: code outer loop: watch_blocks!  Get timestamp off of it!  Subscribe to events from that
+// block!
+
 use dotenv::dotenv;
 
 use std::env::var;
@@ -38,14 +41,19 @@ async fn main() -> Result<()> {
 }
 
 async fn launch_transfer_monitor() -> Result<()> {
+    // Set up client/provider; using open Infura endpoint on mainnet.
     let client = Provider::<Ws>::connect("wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27").await?;
 
     let client = Arc::new(client);
 
+    // Start monitoring on the last block.
+    // TODO: check database for the last block that transfer events were saved.
     let last_block = client.get_block(BlockNumber::Latest).await?.unwrap().number.unwrap();
 
+    // Filter logs by tranfer events on the specified block.
     let erc20_transfer_filter = Filter::new().from_block(last_block).event("Transfer(address,address,uint256)");
 
+    // Subscribe to the logs using the filter, saved to a stream.
     let mut stream = client.subscribe_logs(&erc20_transfer_filter).await?.take(2);
 
     while let Some(log) = stream.next().await {
