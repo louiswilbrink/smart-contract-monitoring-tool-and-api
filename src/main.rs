@@ -5,6 +5,8 @@ use std::env::VarError;
 
 use std::sync::Arc;
 
+use eyre::Result;
+
 use axum::{
     routing::get,
     extract::{Path, Query, Json},
@@ -15,12 +17,6 @@ use std::collections::HashMap;
 
 use ethers::prelude::*;
 
-use ethers_providers::MAINNET;
-
-use ethers_providers::{Provider, Ws, Http, Middleware};
-
-use ethers_providers::PubsubClient;
-
 use ethers::{
     core::{
         abi::AbiDecode,
@@ -28,9 +24,7 @@ use ethers::{
     },
 };
 
-use u256_literal::u256;
-
-use eyre::Result;
+use ethers_providers::{Provider, Ws};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -41,8 +35,6 @@ async fn main() -> Result<()> {
     let client = Arc::new(client);
 
     let last_block = client.get_block(BlockNumber::Latest).await?.unwrap().number.unwrap();
-
-    println!("last_block: {last_block}");
 
     let erc20_transfer_filter = Filter::new().from_block(last_block).event("Transfer(address,address,uint256)");
 
