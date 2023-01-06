@@ -1,8 +1,6 @@
-# spearbit-take-home
+# Contract Monitoring Tool
 
-This service uses `ether-rs`'s RPC client to listen to transaction events on a contract address.
-
-Make sure to copy and rename the `.env-example` file.
+This service uses `ether-rs`'s RPC client to listen to transaction events on a specified contract address.
 
 The service subscribes to transaction events and stores the following attributes in a Postgres database:
 
@@ -16,3 +14,13 @@ The service also exposes an API endpoint to query journaled transaction data, fi
 
 ### `GET` /transactions
 
+
+
+
+## Getting Started
+
+Copy and rename the `.env-example` file, then add appropriate values.
+
+```
+$ cargo run
+```

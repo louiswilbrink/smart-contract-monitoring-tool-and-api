@@ -12,3 +12,6 @@ axum = { version = "0.6.1", features = ["ws"] }
 ethers = { version = "1.0.2" }
 ethers-providers = { version = "1.0.2" }
 dotenv = "0.15.0"
+primitive-types = "0.12.1"
+u256-literal = "1.2.0"
+eyre = "0.6.8"
