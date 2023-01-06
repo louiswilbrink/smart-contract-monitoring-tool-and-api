@@ -6,6 +6,8 @@ use dotenv::dotenv;
 use std::env::var;
 use std::env::VarError;
 
+use std::time::Duration;
+
 use std::sync::Arc;
 
 use eyre::Result;
@@ -33,39 +35,54 @@ use ethers_providers::{Provider, Ws};
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    launch_api().await;
+    //launch_api().await;
 
-    launch_transfer_monitor().await;
+    launchTransferMonitor().await;
 
     Ok(())
 }
 
-async fn launch_transfer_monitor() -> Result<()> {
-    // Set up client/provider; using open Infura endpoint on mainnet.
-    let client = Provider::<Ws>::connect("wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27").await?;
+async fn launchTransferMonitor() -> Result<()> {
+    println!("Monitoring blocks..");
 
-    let client = Arc::new(client);
+    // TODO: corral into get_provider().
+    let ws_endpoint = "wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27";
+    let ws = Ws::connect(ws_endpoint).await?;
+    let provider = Provider::new(ws).interval(Duration::from_millis(2000));
 
-    // Start monitoring on the last block.
-    // TODO: check database for the last block that transfer events were saved.
-    let last_block = client.get_block(BlockNumber::Latest).await?.unwrap().number.unwrap();
+    let mut stream = provider.watch_blocks().await?.take(20);
 
-    // Filter logs by tranfer events on the specified block.
-    let erc20_transfer_filter = Filter::new().from_block(last_block).event("Transfer(address,address,uint256)");
+    while let Some(block) = stream.next().await {
+        let block = provider.get_block(block).await?.unwrap();
+        let block_timestamp = block.timestamp;
 
-    // Subscribe to the logs using the filter, saved to a stream.
-    let mut stream = client.subscribe_logs(&erc20_transfer_filter).await?.take(2);
-
-    while let Some(log) = stream.next().await {
+        println!("");
         println!(
-            "block: {:?}, tx: {:?}, token: {:?}, from: {:?}, to: {:?}, amount: {:?}",
-            log.block_number,
-            log.transaction_hash,
-            log.address,
-            Address::from(log.topics[1]),
-            Address::from(log.topics[2]),
-            U256::decode(log.data),
+            "Ts: {:?}, block number: {} -> {:?}",
+            block.timestamp,
+            block.number.unwrap(),
+            block.hash.unwrap()
         );
+
+        // Filter logs by tranfer events on the specified block.
+        let erc20_transfer_filter = Filter::new().from_block(block.number.unwrap()).event("Transfer(address,address,uint256)");
+
+        // Subscribe to the logs using the filter and send them to a stream for processing.
+        let mut stream = provider.subscribe_logs(&erc20_transfer_filter).await?.take(2);
+
+        while let Some(log) = stream.next().await {
+            println!("");
+            println!(
+                "block: {:?}, tx: {:?}, token: {:?}, from: {:?}, to: {:?}, amount: {:?}, timestamp: {:?}",
+                log.block_number,
+                log.transaction_hash,
+                log.address,
+                Address::from(log.topics[1]),
+                Address::from(log.topics[2]),
+                U256::decode(log.data),
+                block_timestamp,
+            );
+        }
     }
 
     Ok(())
