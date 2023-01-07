@@ -73,6 +73,7 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
         let erc20_transfer_filter = Filter::new().from_block(block.number.unwrap()).event("Transfer(address,address,uint256)");
 
         // Subscribe to the logs using the filter and send them to a stream for processing.
+        // Temporary: Limit to 2 for easy debugging.
         let mut stream = provider.subscribe_logs(&erc20_transfer_filter).await?.take(2);
 
         while let Some(log) = stream.next().await {
@@ -97,7 +98,13 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
             let amount: f64 = 3500000000000.0;
 
             // Save to database.
-            let row: (i64,) = sqlx::query_as("insert into transfers (tx_hash, sender, recipient) values ($1, $2, $3) returning id")
+            let row: (i64,) = sqlx::query_as(
+                r#"
+                INSERT INTO transfers (tx_hash, sender, recipient)
+                VALUES ($1, $2, $3)
+                RETURNING id
+                "#
+                )
                 .bind(tx_hash)
                 .bind(sender)
                 .bind(recipient)
