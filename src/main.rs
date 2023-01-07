@@ -161,13 +161,18 @@ struct Transfer {
 }
 
 async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Vec<Transfer>>, (StatusCode, String)> {
-    let rows: Vec<PgRow> = sqlx::query(
-        r#"
-        SELECT *
-        FROM transfers
-        WHERE sender='0x33555f2008405660d04f128dc17e6ee01b77c4e7'
-        "#
-        )
+
+    let query = format!(r#"
+        SELECT * 
+        FROM transfers 
+        WHERE {}='{}'
+        "#, 
+        String::from("sender"),
+        String::from("0x33555f2008405660d04f128dc17e6ee01b77c4e7")
+    );
+
+    // TODO: convert to query_as using custom struct.
+    let rows: Vec<PgRow> = sqlx::query(&query)
         .fetch_all(&pool)
         .await
         .unwrap();
