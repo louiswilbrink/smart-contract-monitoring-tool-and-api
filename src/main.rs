@@ -37,9 +37,9 @@ use serde::{Serialize};
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    //launch_api(&config).await;
+    launch_api(&config).await;
 
-    launch_transfer_monitor(&config).await;
+    //launch_transfer_monitor(&config).await;
 
     Ok(())
 }
@@ -165,6 +165,7 @@ async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashM
         r#"
         SELECT *
         FROM transfers
+        WHERE sender='0x33555f2008405660d04f128dc17e6ee01b77c4e7'
         "#
         )
         .fetch_all(&pool)
@@ -174,11 +175,11 @@ async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashM
     let transfers: Vec<Transfer> = rows
         .iter()
         .map(|r| Transfer { 
-            tx_hash: r.get::<String, _>("tx_hash"),
-            sender: r.get::<String, _>("sender"),
-            recipient: r.get::<String, _>("recipient"),
-            amount: r.get::<f64, _>("amount"),
-            timestamp: r.get::<i64, _>("timestamp"),
+            tx_hash: r.get("tx_hash"),
+            sender: r.get("sender"),
+            recipient: r.get("recipient"),
+            amount: r.get("amount"),
+            timestamp: r.get("timestamp"),
         })
         .collect::<Vec<Transfer>>();
 
