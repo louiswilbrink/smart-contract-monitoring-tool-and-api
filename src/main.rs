@@ -12,6 +12,7 @@ use eyre::Result;
 use axum::{
     routing::get,
     extract::{Path, Query, Json, State},
+    http::{request::Parts, StatusCode},
     Router
 };
 
@@ -35,16 +36,15 @@ use primitive_types::H256;
 
 use conv::*;
 
+use serde::{Serialize, Deserialize};
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    //launch_api(&config).await;
+    launch_api(&config).await;
 
-    //let pool = get_connection_pool(&config).await.unwrap();
-    
-    //launchTransferMonitor(&pool).await;
-    launchTransferMonitor(&config).await;
+    //launchTransferMonitor(&config).await;
 
     Ok(())
 }
@@ -154,23 +154,30 @@ async fn launch_api(config: &Configuration) -> Result<()> {
     Ok(())
 }
 
+#[derive(Serialize)]
 struct Transfer {
     sender: String, // TODO: Convert to Ethereum Address type.
                    // For now, since it's only being sent as JSON to the client,
                    // we can keep it String for simplicity.
 }
 
-async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) {
+async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Transfer>, (StatusCode, String)> {
     println!("Querying transactions with params: {:?}", params);
 
-    //let rows = sqlx::query(
-        //r#"
-        //SELECT sender
-        //FROM transfers
-        //"#
-        //)
-        //.fetch_all(&pool)
-        //.await?;
+    sqlx::query(
+        r#"
+        SELECT sender
+        FROM transfers
+        "#
+        )
+        .fetch_one(&pool)
+        .await;
+
+    let response = Transfer {
+        sender: String::from("0x33555f2008405660d04f128dc17e6ee01b77c4e7")
+    };
+
+    Ok(Json(response))
 }
 
 pub fn load_configuration() -> Configuration {
