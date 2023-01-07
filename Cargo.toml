@@ -16,4 +16,3 @@ primitive-types = "0.12.1"
 u256-literal = "1.2.0"
 eyre = "0.6.8"
 sqlx = { version = "0.6.2", features = ["postgres", "runtime-async-std-native-tls"] }
-conv = "0.3.3"

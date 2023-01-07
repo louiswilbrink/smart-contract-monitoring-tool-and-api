@@ -1,55 +1,50 @@
 use dotenv::dotenv;
 
-use std::env::var;
-use std::env::VarError;
-
-use std::time::Duration;
-
-use std::sync::Arc;
-
-use eyre::Result;
+use std::{
+    env::{var, VarError},
+    time::Duration,
+    collections::HashMap,
+};
 
 use axum::{
     routing::get,
-    extract::{Path, Query, Json, State},
-    http::{request::Parts, StatusCode},
-    Router
+    extract::{Query, Json, State},
+    http::{StatusCode},
+    Router,
 };
 
-use std::collections::HashMap;
-
-use ethers::prelude::*;
+use eyre::Result;
 
 use ethers::{
+    prelude::*,
     core::{
         abi::AbiDecode,
-        types::{Address, BlockNumber, Filter, U256},
+        types::{Address, Filter, U256},
     },
 };
 
 use ethers_providers::{Provider, Ws};
 
-use sqlx::{Pool,Row};
-use sqlx::postgres::{Postgres, PgPool, PgPoolOptions, PgRow};
+use sqlx::{
+    Pool,
+    Row,
+    postgres::{Postgres, PgPool, PgPoolOptions, PgRow},
+};
 
-use primitive_types::H256;
-
-use conv::*;
-
-use serde::{Serialize, Deserialize};
+use serde::{Serialize};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    launch_api(&config).await;
+    //launch_api(&config).await;
 
-    //launchTransferMonitor(&config).await;
+    launch_transfer_monitor(&config).await;
 
     Ok(())
 }
 
-async fn launchTransferMonitor(config: &Configuration) -> Result<()> {
+async fn launch_transfer_monitor(config: &Configuration) -> Result<()> {
     println!("Monitoring blocks..");
 
     let pool = get_connection_pool(&config).await.unwrap();
@@ -114,7 +109,7 @@ async fn launchTransferMonitor(config: &Configuration) -> Result<()> {
             );
 
             // Save to database.  TODO: requires error handling.
-            let row: (i64,) = sqlx::query_as(
+            let _row: (i64,) = sqlx::query_as(
                 r#"
                 INSERT INTO transfers (tx_hash, sender, recipient, amount, timestamp)
                 VALUES ($1, $2, $3, $4, $5)
@@ -156,15 +151,19 @@ async fn launch_api(config: &Configuration) -> Result<()> {
 
 #[derive(Serialize, Debug)]
 struct Transfer {
+    tx_hash: String,
     sender: String, // TODO: Convert to Ethereum Address type.
                    // For now, since it's only being sent as JSON to the client,
                    // we can keep it String for simplicity.
+    recipient: String,
+    amount: f64,
+    timestamp: i64,
 }
 
 async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Vec<Transfer>>, (StatusCode, String)> {
     let rows: Vec<PgRow> = sqlx::query(
         r#"
-        SELECT sender
+        SELECT *
         FROM transfers
         "#
         )
@@ -174,7 +173,13 @@ async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashM
 
     let transfers: Vec<Transfer> = rows
         .iter()
-        .map(|r| Transfer { sender: r.get::<String, _>("sender") })
+        .map(|r| Transfer { 
+            tx_hash: r.get::<String, _>("tx_hash"),
+            sender: r.get::<String, _>("sender"),
+            recipient: r.get::<String, _>("recipient"),
+            amount: r.get::<f64, _>("amount"),
+            timestamp: r.get::<i64, _>("timestamp"),
+        })
         .collect::<Vec<Transfer>>();
 
     Ok(Json(transfers))
