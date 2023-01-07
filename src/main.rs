@@ -29,8 +29,8 @@ use ethers::{
 
 use ethers_providers::{Provider, Ws};
 
-use sqlx::Pool;
-use sqlx::postgres::{Postgres, PgPool, PgPoolOptions};
+use sqlx::{Pool,Row};
+use sqlx::postgres::{Postgres, PgPool, PgPoolOptions, PgRow};
 
 use primitive_types::H256;
 
@@ -154,30 +154,30 @@ async fn launch_api(config: &Configuration) -> Result<()> {
     Ok(())
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Transfer {
     sender: String, // TODO: Convert to Ethereum Address type.
                    // For now, since it's only being sent as JSON to the client,
                    // we can keep it String for simplicity.
 }
 
-async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Transfer>, (StatusCode, String)> {
-    println!("Querying transactions with params: {:?}", params);
-
-    sqlx::query(
+async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Vec<Transfer>>, (StatusCode, String)> {
+    let rows: Vec<PgRow> = sqlx::query(
         r#"
         SELECT sender
         FROM transfers
         "#
         )
-        .fetch_one(&pool)
-        .await;
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
-    let response = Transfer {
-        sender: String::from("0x33555f2008405660d04f128dc17e6ee01b77c4e7")
-    };
+    let transfers: Vec<Transfer> = rows
+        .iter()
+        .map(|r| Transfer { sender: r.get::<String, _>("sender") })
+        .collect::<Vec<Transfer>>();
 
-    Ok(Json(response))
+    Ok(Json(transfers))
 }
 
 pub fn load_configuration() -> Configuration {
