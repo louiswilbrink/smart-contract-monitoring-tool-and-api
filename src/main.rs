@@ -34,6 +34,8 @@ use sqlx::postgres::Postgres;
 
 use primitive_types::H256;
 
+use conv::*;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
@@ -77,38 +79,45 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
         let mut stream = provider.subscribe_logs(&erc20_transfer_filter).await?.take(2);
 
         while let Some(log) = stream.next().await {
-            println!("");
-            println!(
-                "block: {:?}, tx: {:?}, token: {:?}, from: {:?}, to: {:?}, amount: {:?}, timestamp: {:?}",
-                log.block_number,
-                log.transaction_hash,
-                log.address,
-                Address::from(log.topics[1]),
-                Address::from(log.topics[2]),
-                U256::decode(log.data),
-                block_timestamp,
-            );
-
+            // Convert log values.
             let tx_hash = format!("{:?}", Address::from(log.transaction_hash.unwrap()));
 
             let sender = format!("{:?}", Address::from(log.topics[1]));
 
             let recipient = format!("{:?}", Address::from(log.topics[2]));
 
-            let amount: f64 = 3500000000000.0;
+            // Convert to f64 for SQL datatype compatibility.
+            let amount = U256::decode(log.data).unwrap();
+
+            let amount = amount.as_u128();
+
+            let amount = amount as f64;
+
+            // Display.
+            println!("");
+            println!(
+                "block: {:?}, tx: {:?}, token: {:?}, from: {:?}, to: {:?}, amount: {:?}, timestamp: {:?}",
+                log.block_number,
+                tx_hash,
+                log.address,
+                sender,
+                recipient,
+                amount,
+                block_timestamp,
+            );
 
             // Save to database.
             let row: (i64,) = sqlx::query_as(
                 r#"
-                INSERT INTO transfers (tx_hash, sender, recipient)
-                VALUES ($1, $2, $3)
+                INSERT INTO transfers (tx_hash, sender, recipient, amount)
+                VALUES ($1, $2, $3, $4)
                 RETURNING id
                 "#
                 )
                 .bind(tx_hash)
                 .bind(sender)
                 .bind(recipient)
-                //.bind(amount)
+                .bind(amount)
                 //.bind(1673055924)
                 .fetch_one(pool)
                 .await?;
@@ -177,7 +186,8 @@ async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, s
             id bigserial,
             tx_hash text,
             sender text,
-            recipient text
+            recipient text,
+            amount float8
         );"#,
         )
         .execute(&pool)
