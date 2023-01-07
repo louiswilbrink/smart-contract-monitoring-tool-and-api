@@ -61,7 +61,12 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
 
     while let Some(block) = stream.next().await {
         let block = provider.get_block(block).await?.unwrap();
+
         let block_timestamp = block.timestamp;
+
+        let block_timestamp = block_timestamp.as_u64();
+
+        let block_timestamp = block_timestamp as i64;
 
         println!("");
         println!(
@@ -106,11 +111,11 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
                 block_timestamp,
             );
 
-            // Save to database.
+            // Save to database.  TODO: requires error handling.
             let row: (i64,) = sqlx::query_as(
                 r#"
-                INSERT INTO transfers (tx_hash, sender, recipient, amount)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO transfers (tx_hash, sender, recipient, amount, timestamp)
+                VALUES ($1, $2, $3, $4, $5)
                 RETURNING id
                 "#
                 )
@@ -118,7 +123,7 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
                 .bind(sender)
                 .bind(recipient)
                 .bind(amount)
-                //.bind(1673055924)
+                .bind(block_timestamp)
                 .fetch_one(pool)
                 .await?;
         }
@@ -187,7 +192,8 @@ async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, s
             tx_hash text,
             sender text,
             recipient text,
-            amount float8
+            amount float8,
+            timestamp bigint
         );"#,
         )
         .execute(&pool)
