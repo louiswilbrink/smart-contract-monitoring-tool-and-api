@@ -28,18 +28,7 @@ $ brew install postgresql
 $ brew services start postgresql
 ```
 
-Log into Postgres with the username/password you set in your `.env` file.  Create the `transfers` table:
-
-```
-# CREATE TABLE transfers (
-    id          INTEGER NOT NULL UNIQUE PRIMARY KEY,
-    tx_hash     VARCHAR(66) NOT NULL,
-    sender      VARCHAR(44) NOT NULL,
-    recipient   VARCHAR(44) NOT NULL,
-    amount      FLOAT,
-    timestamp   TIMESTAMP
-);
-```
+The `transfers` table will automatically be created if it doesn't exist.
 
 Run!
 

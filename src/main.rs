@@ -32,35 +32,22 @@ use sqlx::Pool;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::Postgres;
 
+use primitive_types::H256;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    //launch_api().await;
-
     let pool = get_connection_pool(&config).await.unwrap();
 
-    launchTransferMonitor().await;
+    //launch_api().await;
+
+    launchTransferMonitor(&pool).await;
 
     Ok(())
 }
 
-async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, sqlx::Error> {
-    println!("Connecting to database..");
-
-    let connection_string = format!("postgres://{:1}:{:2}@localhost/{:3}", config.database_username, config.database_password, config.database_name);
-
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&connection_string)
-        .await?;
-
-    // TODO: Add "Successfully connected to database" notification.
-
-    Ok(pool)
-}
-
-async fn launchTransferMonitor() -> Result<()> {
+async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
     println!("Monitoring blocks..");
 
     // TODO: corral into get_provider().
@@ -100,6 +87,24 @@ async fn launchTransferMonitor() -> Result<()> {
                 U256::decode(log.data),
                 block_timestamp,
             );
+
+            let tx_hash = format!("{:?}", Address::from(log.transaction_hash.unwrap()));
+
+            let sender = format!("{:?}", Address::from(log.topics[1]));
+
+            let recipient = format!("{:?}", Address::from(log.topics[2]));
+
+            let amount: f64 = 3500000000000.0;
+
+            // Save to database.
+            let row: (i64,) = sqlx::query_as("insert into transfers (tx_hash, sender, recipient) values ($1, $2, $3) returning id")
+                .bind(tx_hash)
+                .bind(sender)
+                .bind(recipient)
+                //.bind(amount)
+                //.bind(1673055924)
+                .fetch_one(pool)
+                .await?;
         }
     }
 
@@ -145,6 +150,33 @@ fn read_environment_variables() -> Result<Configuration, VarError> {
 
 fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>())
+}
+
+async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, sqlx::Error> {
+    println!("Connecting to database..");
+
+    let connection_string = format!("postgres://{:1}:{:2}@localhost/{:3}", config.database_username, config.database_password, config.database_name);
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&connection_string)
+        .await?;
+
+    // TODO: Add "Successfully connected to database" notification.
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS transfers (
+            id bigserial,
+            tx_hash text,
+            sender text,
+            recipient text
+        );"#,
+        )
+        .execute(&pool)
+        .await?;
+
+    Ok(pool)
 }
 
 #[derive(Debug)]
