@@ -11,7 +11,7 @@ use eyre::Result;
 
 use axum::{
     routing::get,
-    extract::{Path, Query, Json},
+    extract::{Path, Query, Json, State},
     Router
 };
 
@@ -29,8 +29,7 @@ use ethers::{
 use ethers_providers::{Provider, Ws};
 
 use sqlx::Pool;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::postgres::Postgres;
+use sqlx::postgres::{Postgres, PgPool, PgPoolOptions};
 
 use primitive_types::H256;
 
@@ -40,17 +39,20 @@ use conv::*;
 async fn main() -> Result<()> {
     let config = load_configuration();
 
-    let pool = get_connection_pool(&config).await.unwrap();
+    //launch_api(&config).await;
 
-    //launch_api().await;
-
-    launchTransferMonitor(&pool).await;
+    //let pool = get_connection_pool(&config).await.unwrap();
+    
+    //launchTransferMonitor(&pool).await;
+    launchTransferMonitor(&config).await;
 
     Ok(())
 }
 
-async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
+async fn launchTransferMonitor(config: &Configuration) -> Result<()> {
     println!("Monitoring blocks..");
+
+    let pool = get_connection_pool(&config).await.unwrap();
 
     // TODO: corral into get_provider().
     let ws_endpoint = "wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27";
@@ -124,7 +126,7 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
                 .bind(recipient)
                 .bind(amount)
                 .bind(block_timestamp)
-                .fetch_one(pool)
+                .fetch_one(&pool)
                 .await?;
         }
     }
@@ -132,10 +134,17 @@ async fn launchTransferMonitor(pool: &Pool<Postgres>) -> Result<()> {
     Ok(())
 }
 
-async fn launch_api() -> Result<()> {
-    println!("Listening on http://localhost:3000..");
+async fn launch_api(config: &Configuration) -> Result<()> {
+    let pool = get_connection_pool(&config).await.unwrap();
 
-    let app = Router::new().route("/transactions", get(process_transaction));
+    let app = Router::new()
+        .route(
+            "/transactions", 
+            get(get_transactions)
+        )
+        .with_state(pool);
+
+    println!("Listening on http://localhost:3000..");
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.into_make_service())
@@ -145,9 +154,23 @@ async fn launch_api() -> Result<()> {
     Ok(())
 }
 
-async fn process_transaction(Query(params): Query<HashMap<String, String>>) {
-    println!("Querying transactions..");
-    println!("{:?}", params);
+struct Transfer {
+    sender: String, // TODO: Convert to Ethereum Address type.
+                   // For now, since it's only being sent as JSON to the client,
+                   // we can keep it String for simplicity.
+}
+
+async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) {
+    println!("Querying transactions with params: {:?}", params);
+
+    //let rows = sqlx::query(
+        //r#"
+        //SELECT sender
+        //FROM transfers
+        //"#
+        //)
+        //.fetch_all(&pool)
+        //.await?;
 }
 
 pub fn load_configuration() -> Configuration {
