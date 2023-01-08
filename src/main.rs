@@ -6,7 +6,7 @@ use std::{
 
 use axum::{
     routing::get,
-    extract::{Query, Json, State},
+    extract::{Path, Query, Json, State},
     http::{StatusCode},
     Router,
 };
@@ -134,6 +134,10 @@ async fn launch_api(config: &Configuration) -> Result<()> {
             "/transactions", 
             get(get_transactions)
         )
+        .route(
+            "/transactions/:tx_hash",
+            get(get_transaction_by_hash)
+        )
         .with_state(pool);
 
     println!("Listening on http://localhost:3000..");
@@ -144,6 +148,43 @@ async fn launch_api(config: &Configuration) -> Result<()> {
         .unwrap();
 
     Ok(())
+}
+
+async fn get_transaction_by_hash( State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>, Path(tx_hash): Path<String>) -> Result<Json<Transfer>, (StatusCode, String)> {
+
+    // TODO: String manipulation not ideal or easy to read; use ORM.
+    let mut query = String::from("SELECT * FROM transfers WHERE");
+
+    query.push_str(" tx_hash='");
+    query.push_str(&tx_hash);
+    query.push_str("'");
+
+    println!("Query: {}", query);
+
+    // TODO: convert to query_as using custom struct.
+    let row = sqlx::query(&query)
+        .fetch_one(&pool)
+        .await;
+
+    let transfer = match row {
+        Ok(r) => Transfer { 
+            tx_hash: r.get("tx_hash"),
+            sender: r.get("sender"),
+            recipient: r.get("recipient"),
+            amount: r.get("amount"),
+            timestamp: r.get("timestamp"),
+        },
+        // TODO: Add proper error response in the future.
+        Err(..) => Transfer {
+            tx_hash: String::from("0xNotFound"),
+            sender: String::from("0xNotFound"),
+            recipient: String::from("0xNotFound"),
+            amount: 0.0,
+            timestamp: 0
+        },
+    };
+
+    Ok(Json(transfer))
 }
 
 async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>) -> Result<Json<Vec<Transfer>>, (StatusCode, String)> {
