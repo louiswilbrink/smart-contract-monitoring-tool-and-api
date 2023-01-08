@@ -301,6 +301,52 @@ async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, s
         )
         .execute(&pool)
         .await?;
+        
+    // TODO: Disallow multiple seeding.
+    let _row: (i64,) = sqlx::query_as(
+        r#"
+        INSERT INTO transfers (tx_hash, sender, recipient, amount, timestamp)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#
+        )
+        .bind("0x87327201eac4cf8df4ec4831e434ffd872b7b4eb")
+        .bind("0x00000000a991c429ee2ec6df19d40fe0c80088b8")
+        .bind("0xc5be99a02c6857f9eac67bbce58df5572498f40c")
+        .bind(34005500222.0)
+        .bind(1673102315)
+        .fetch_one(&pool)
+        .await?;
+
+    let _row: (i64,) = sqlx::query_as(
+        r#"
+        INSERT INTO transfers (tx_hash, sender, recipient, amount, timestamp)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#
+        )
+        .bind("0xb653d23e95a02cb6de0bef363406ee617a545cd4")
+        .bind("0x62716cd006b3c64ca1ef5dc439b56069e16cbe9c")
+        .bind("0x5c6eff81d09cb1ebe7ce87f4f2df638f83b05b6c")
+        .bind(464332344332.0)
+        .bind(1673101315)
+        .fetch_one(&pool)
+        .await?;
+
+    let _row: (i64,) = sqlx::query_as(
+        r#"
+        INSERT INTO transfers (tx_hash, sender, recipient, amount, timestamp)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#
+        )
+        .bind("0x1f7259c7940891146dd6888d7f707b4a889844d7")
+        .bind("0x8c0f2dbabe1fe6d79bbc90930de313da9c81c8bd")
+        .bind("0xf267d62188820f1ce7aebf01bfdefc5d4c45d3cf")
+        .bind(77238333.0)
+        .bind(1673101200)
+        .fetch_one(&pool)
+        .await?;
 
     Ok(pool)
 }
