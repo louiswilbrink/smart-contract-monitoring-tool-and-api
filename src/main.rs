@@ -27,29 +27,35 @@ use sqlx::{
 };
 
 use serde::Serialize;
+
 use dotenv::dotenv;
+
 use eyre::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = load_configuration();
+    
+    let args: Vec<String> = std::env::args().collect();
 
-    launch_api(&config).await;
-
-    //launch_transfer_monitor(&config).await;
+    if args.iter().any(|i| i == "--api") {
+        launch_api(&config).await.expect("always on");
+    } else {
+        launch_transfer_monitor(&config).await.expect("always on");
+    }
 
     Ok(())
 }
 
 async fn launch_transfer_monitor(config: &Configuration) -> Result<()> {
-    println!("Monitoring blocks..");
-
     let pool = get_connection_pool(&config).await.unwrap();
 
     // TODO: corral into get_provider().
     let ws_endpoint = "wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27";
     let ws = Ws::connect(ws_endpoint).await?;
     let provider = Provider::new(ws).interval(Duration::from_millis(2000));
+
+    println!("Monitoring blocks..");
 
     let mut stream = provider.watch_blocks().await?.take(20);
 
@@ -150,7 +156,7 @@ async fn launch_api(config: &Configuration) -> Result<()> {
     Ok(())
 }
 
-async fn get_transaction_by_hash( State(pool): State<PgPool>, Query(params): Query<HashMap<String, String>>, Path(tx_hash): Path<String>) -> Result<Json<Transfer>, (StatusCode, String)> {
+async fn get_transaction_by_hash(State(pool): State<PgPool>,  Path(tx_hash): Path<String>) -> Result<Json<Transfer>, (StatusCode, String)> {
 
     // TODO: String manipulation not ideal or easy to read; use ORM.
     let mut query = String::from("SELECT * FROM transfers WHERE");
@@ -271,7 +277,7 @@ async fn get_transactions(State(pool): State<PgPool>, Query(params): Query<HashM
 }
 
 async fn get_connection_pool(config: &Configuration) -> Result<Pool<Postgres>, sqlx::Error> {
-    println!("Connecting to database..");
+    println!("Connecting to database..\n");
 
     let connection_string = format!("postgres://{:1}:{:2}@localhost/{:3}", config.database_username, config.database_password, config.database_name);
 
@@ -333,8 +339,8 @@ pub struct Configuration {
 struct Transfer {
     tx_hash: String,
     sender: String, // TODO: Convert to Ethereum Address type.
-                   // For now, since it's only being sent as JSON to the client,
-                   // we can keep it String for simplicity.
+                    // For now, since it's only being sent as JSON to the client,
+                    // we can use String for simplicity.
     recipient: String,
     amount: f64,
     timestamp: i64,
